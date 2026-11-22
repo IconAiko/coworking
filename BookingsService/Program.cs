@@ -15,7 +15,8 @@ var connectionString = builder.Configuration
         "MySQL connection string not configured.");
 
 builder.Services.AddDbContext<BookingsDbContext>(options =>
-    options.UseMySQL(connectionString));
+    options.UseMySQL(connectionString, mysql =>
+        mysql.MigrationsHistoryTable("__BookingsMigrationsHistory")));
 
 var app = builder.Build();
 
