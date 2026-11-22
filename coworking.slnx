@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BookingsService/BookingsService.csproj" Id="c446bc22-c524-4952-960f-c17ab235eb38" />
+  <Project Path="ResourcesService/ResourcesService.csproj" Id="3fdbc92a-5eff-4226-977f-a55411d348ef" />
+</Solution>
