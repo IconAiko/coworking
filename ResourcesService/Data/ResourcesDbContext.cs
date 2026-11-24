@@ -22,12 +22,17 @@ public class ResourcesDbContext : DbContext
 
         // 1:N (Коворкинг/Ресурс)
         modelBuilder.Entity<Coworking>()
-            .HasMany(c => c.Resources)
-            .WithOne(r => r.Coworking)
-            .HasForeignKey(r => r.CoworkingId);
+            .Property(c => c.OpeningTime)
+            .HasConversion(
+                time => time.ToTimeSpan(),
+                span => TimeOnly.FromTimeSpan(span))
+            .HasColumnType("time");
 
-        modelBuilder.Entity<Resource>()
-            .Property(r => r.PricePerHour)
-            .HasPrecision(10, 2);
+        modelBuilder.Entity<Coworking>()
+            .Property(c => c.ClosingTime)
+            .HasConversion(
+                time => time.ToTimeSpan(),
+                span => TimeOnly.FromTimeSpan(span))
+            .HasColumnType("time");
     }
 }
