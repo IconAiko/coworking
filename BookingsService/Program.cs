@@ -18,6 +18,18 @@ builder.Services.AddDbContext<BookingsDbContext>(options =>
     options.UseMySQL(connectionString, mysql =>
         mysql.MigrationsHistoryTable("__BookingsMigrationsHistory")));
 
+builder.Services.AddHttpClient("ResourcesService", client =>
+{
+    var serviceUrl = builder.Configuration[
+        "Services:ResourcesServiceUrl"]
+        ?? throw new InvalidOperationException(
+            "Не указан адрес ResourcesService");
+
+    client.BaseAddress = new Uri(serviceUrl);
+
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
