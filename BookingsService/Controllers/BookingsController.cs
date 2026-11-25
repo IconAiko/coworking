@@ -10,10 +10,14 @@ namespace BookingsService.Controllers;
 public class BookingsController : ControllerBase
 {
     private readonly BookingsDbContext _context;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public BookingsController(BookingsDbContext context)
+    public BookingsController(
+        BookingsDbContext context,
+        IHttpClientFactory httpClientFactory)
     {
         _context = context;
+        _httpClientFactory = httpClientFactory;
     }
 
     // GET: api/bookings - все бронирования
@@ -82,6 +86,11 @@ public class BookingsController : ControllerBase
         if (!clientExists)
             return BadRequest("Указанный клиент не существует");
 
+        var resourceError = await CheckResourceAsync(request.ResourceId);
+
+        if (resourceError != null)
+            return resourceError;
+
         var booking = new Booking
         {
             ClientId = request.ClientId,
@@ -122,6 +131,11 @@ public class BookingsController : ControllerBase
         if (booking.Status == "Cancelled")
             return Conflict("Отменённое бронирование нельзя изменять");
 
+        var resourceError = await CheckResourceAsync(request.ResourceId);
+
+        if (resourceError != null)
+            return resourceError;
+
         booking.ResourceId = request.ResourceId;
         booking.StartTime = request.StartTime;
         booking.EndTime = request.EndTime;
@@ -149,6 +163,43 @@ public class BookingsController : ControllerBase
 
         return NoContent();
     }
+
+    // Проверка ресурса
+    private async Task<IActionResult?> CheckResourceAsync(long resourceId)
+    {
+        try
+        {
+            var client = _httpClientFactory
+                .CreateClient("ResourcesService");
+
+            using var response = await client.GetAsync(
+                $"api/resources/{resourceId}");
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return BadRequest("Указанный ресурс не существует");
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode(503,
+                    "Не удалось получить данные от сервиса ресурсов");
+            }
+
+            return null;
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503,
+                "Сервис ресурсов недоступен");
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(503,
+                "Превышено время ожидания ответа сервиса ресурсов");
+        }
+    }
+
 }
 
 // DTO
