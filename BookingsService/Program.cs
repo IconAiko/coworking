@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using BookingsService.Data;
+using BookingsService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,8 @@ builder.Services.AddHttpClient("ResourcesService", client =>
 
     client.Timeout = TimeSpan.FromSeconds(5);
 });
+
+builder.Services.AddScoped<BookingValidationService>();
 
 var app = builder.Build();
 

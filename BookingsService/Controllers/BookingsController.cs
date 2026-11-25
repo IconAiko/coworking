@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BookingsService.Data;
 using BookingsService.Models;
+using BookingsService.Services;
 
 namespace BookingsService.Controllers;
 
@@ -10,17 +12,17 @@ namespace BookingsService.Controllers;
 public class BookingsController : ControllerBase
 {
     private readonly BookingsDbContext _context;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly BookingValidationService _validationService;
 
     public BookingsController(
         BookingsDbContext context,
-        IHttpClientFactory httpClientFactory)
+        BookingValidationService validationService)
     {
         _context = context;
-        _httpClientFactory = httpClientFactory;
+        _validationService = validationService;
     }
 
-    // GET: api/bookings - все бронирования
+    // GET: api/bookings
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -42,7 +44,7 @@ public class BookingsController : ControllerBase
         return Ok(bookings);
     }
 
-    // GET: api/bookings/1 - конкретное бронирование
+    // GET: api/bookings/1
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
@@ -68,17 +70,13 @@ public class BookingsController : ControllerBase
         return Ok(booking);
     }
 
-    // POST: api/bookings - создать бронирование
+    // POST: api/bookings
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateBookingRequest request)
     {
-        if (request.ClientId <= 0 || request.ResourceId <= 0)
-            return BadRequest("Некорректный ID клиента или ресурса");
-
-        if (request.StartTime >= request.EndTime)
-            return BadRequest(
-                "Время начала должно быть раньше времени окончания");
+        if (request.ClientId <= 0)
+            return BadRequest("Некорректный ID клиента");
 
         bool clientExists = await _context.Clients
             .AnyAsync(c => c.Id == request.ClientId);
@@ -86,10 +84,13 @@ public class BookingsController : ControllerBase
         if (!clientExists)
             return BadRequest("Указанный клиент не существует");
 
-        var resourceError = await CheckResourceAsync(request.ResourceId);
+        var error = await _validationService.ValidateAsync(
+            request.ResourceId,
+            request.StartTime,
+            request.EndTime);
 
-        if (resourceError != null)
-            return resourceError;
+        if (error != null)
+            return StatusCode(error.StatusCode, error.Message);
 
         var booking = new Booking
         {
@@ -110,19 +111,12 @@ public class BookingsController : ControllerBase
             new { booking.Id });
     }
 
-    // PUT: api/bookings/1 - изменить бронирование
+    // PUT: api/bookings/1
     [HttpPut("{id:long}")]
     public async Task<IActionResult> Update(
         long id,
         [FromBody] UpdateBookingRequest request)
     {
-        if (request.ResourceId <= 0)
-            return BadRequest("Некорректный ID ресурса");
-
-        if (request.StartTime >= request.EndTime)
-            return BadRequest(
-                "Время начала должно быть раньше времени окончания");
-
         var booking = await _context.Bookings.FindAsync(id);
 
         if (booking == null)
@@ -131,10 +125,14 @@ public class BookingsController : ControllerBase
         if (booking.Status == "Cancelled")
             return Conflict("Отменённое бронирование нельзя изменять");
 
-        var resourceError = await CheckResourceAsync(request.ResourceId);
+        var error = await _validationService.ValidateAsync(
+            request.ResourceId,
+            request.StartTime,
+            request.EndTime,
+            id);
 
-        if (resourceError != null)
-            return resourceError;
+        if (error != null)
+            return StatusCode(error.StatusCode, error.Message);
 
         booking.ResourceId = request.ResourceId;
         booking.StartTime = request.StartTime;
@@ -145,7 +143,7 @@ public class BookingsController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/bookings/1 - удалить бронирование
+    // DELETE: api/bookings/1
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Cancel(long id)
     {
@@ -163,46 +161,8 @@ public class BookingsController : ControllerBase
 
         return NoContent();
     }
-
-    // Проверка ресурса
-    private async Task<IActionResult?> CheckResourceAsync(long resourceId)
-    {
-        try
-        {
-            var client = _httpClientFactory
-                .CreateClient("ResourcesService");
-
-            using var response = await client.GetAsync(
-                $"api/resources/{resourceId}");
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                return BadRequest("Указанный ресурс не существует");
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return StatusCode(503,
-                    "Не удалось получить данные от сервиса ресурсов");
-            }
-
-            return null;
-        }
-        catch (HttpRequestException)
-        {
-            return StatusCode(503,
-                "Сервис ресурсов недоступен");
-        }
-        catch (TaskCanceledException)
-        {
-            return StatusCode(503,
-                "Превышено время ожидания ответа сервиса ресурсов");
-        }
-    }
-
 }
 
-// DTO
 public class CreateBookingRequest
 {
     public long ClientId { get; set; }
@@ -211,7 +171,6 @@ public class CreateBookingRequest
     public DateTime EndTime { get; set; }
 }
 
-// DTO
 public class UpdateBookingRequest
 {
     public long ResourceId { get; set; }

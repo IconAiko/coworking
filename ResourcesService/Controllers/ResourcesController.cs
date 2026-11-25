@@ -56,7 +56,9 @@ public class ResourcesController : ControllerBase
                 r.PricePerHour,
                 r.IsAvailable,
                 r.CoworkingId,
-                CoworkingName = r.Coworking.Name
+                CoworkingName = r.Coworking.Name,
+                OpeningTime = r.Coworking.OpeningTime,
+                ClosingTime = r.Coworking.ClosingTime
             })
             .FirstOrDefaultAsync();
 
