@@ -141,7 +141,7 @@ public class BookingsController : ControllerBase
             return NotFound("Бронирование не найдено");
 
         if (booking.Status == "Cancelled")
-            return Conflict("Бронирование уже отмененоdotnet ");
+            return Conflict("Бронирование уже отменено");
 
         booking.Status = "Cancelled";
 
