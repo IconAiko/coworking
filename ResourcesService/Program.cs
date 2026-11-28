@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ResourcesService.Data;
+using ResourcesService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,19 @@ var connectionString = builder.Configuration
 builder.Services.AddDbContext<ResourcesDbContext>(options =>
     options.UseMySQL(connectionString, mysql =>
         mysql.MigrationsHistoryTable("__ResourcesMigrationsHistory")));
+
+builder.Services.AddHttpClient("BookingsService", client =>
+{
+    var serviceUrl = builder.Configuration[
+        "Services:BookingsServiceUrl"]
+        ?? throw new InvalidOperationException(
+            "Не указан адрес BookingsService");
+
+    client.BaseAddress = new Uri(serviceUrl);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+builder.Services.AddScoped<ResourceVisibilityService>();
 
 var app = builder.Build();
 

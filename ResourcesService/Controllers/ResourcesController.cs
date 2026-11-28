@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using ResourcesService.Data;
 using ResourcesService.Models;
+using ResourcesService.Services;
 
 namespace ResourcesService.Controllers;
 
@@ -10,10 +11,14 @@ namespace ResourcesService.Controllers;
 public class ResourcesController : ControllerBase
 {
     private readonly ResourcesDbContext _context;
+    private readonly ResourceVisibilityService _visibilityService;
 
-    public ResourcesController(ResourcesDbContext context)
+    public ResourcesController(
+        ResourcesDbContext context,
+        ResourceVisibilityService visibilityService)
     {
         _context = context;
+        _visibilityService = visibilityService;
     }
 
     // GET: api/resources - все ресурсы
@@ -90,7 +95,6 @@ public class ResourcesController : ControllerBase
             Description = request.Description,
             Capacity = request.Capacity,
             PricePerHour = request.PricePerHour,
-            IsAvailable = request.IsAvailable,
             CoworkingId = request.CoworkingId
         };
 
@@ -129,10 +133,21 @@ public class ResourcesController : ControllerBase
         resource.Description = request.Description;
         resource.Capacity = request.Capacity;
         resource.PricePerHour = request.PricePerHour;
-        resource.IsAvailable = request.IsAvailable;
         resource.CoworkingId = request.CoworkingId;
 
         await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // PATCH: api/resources/1/toggle-visibility - отображение ресурса
+    [HttpPatch("{id:long}/toggle-visibility")]
+    public async Task<IActionResult> ToggleVisibility(long id)
+    {
+        var error = await _visibilityService.ToggleVisibilityAsync(id);
+
+        if (error != null)
+            return StatusCode(error.StatusCode, error.Message);
 
         return NoContent();
     }
@@ -164,6 +179,5 @@ public class ResourceRequest
     public string Description { get; set; } = string.Empty;
     public int Capacity { get; set; }
     public decimal PricePerHour { get; set; }
-    public bool IsAvailable { get; set; } = true;
     public long CoworkingId { get; set; }
 }

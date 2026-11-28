@@ -161,6 +161,29 @@ public class BookingsController : ControllerBase
 
         return NoContent();
     }
+
+    // GET: api/bookings/resource/1/has-active - проверка бронирований на ресурсе
+    [HttpGet("resource/{resourceId:long}/has-active")]
+    public async Task<IActionResult> HasActiveBookings(
+        long resourceId)
+    {
+        if (resourceId <= 0)
+            return BadRequest("Некорректный ID ресурса");
+
+        bool hasActiveBookings = await _context.Bookings
+            .AsNoTracking()
+            .AnyAsync(b =>
+                b.ResourceId == resourceId &&
+                (b.Status == "Confirmed" ||
+                 b.Status == "InUse") &&
+                b.EndTime > DateTime.Now);
+
+        return Ok(new
+        {
+            hasActiveBookings
+        });
+    }
+
 }
 
 public class CreateBookingRequest
